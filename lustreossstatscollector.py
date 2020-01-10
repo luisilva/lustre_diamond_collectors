@@ -18,6 +18,7 @@ class LustreossStatsCollector(diamond.collector.Collector):
     def collect(self):
         odbfilter = '/usr/sbin/lctl list_param obdfilter.*.stats'
         brw_cmd = 'tail -n11 /proc/fs/lustre/obdfilter/*/brw_stats'
+        brw_cmd2 = 'tail -n11 /proc/fs/lustre/obdfilter/*/stats'
         lctl_cmd = odbfilter.split(" ")
         try:
             odbfilter = Popen(lctl_cmd, stdout=PIPE, stderr=PIPE)
@@ -30,7 +31,6 @@ class LustreossStatsCollector(diamond.collector.Collector):
                 self.log.critical("lclt command error: %s" % odbfilter_err)
         except OSError, e:
             self.log.critical("OSError: %s" % e)
-
         for ost in odbfilter_out.splitlines():
             get_param = "lctl get_param %s" % ost
             get_param_cmd = get_param.split()
@@ -59,67 +59,71 @@ class LustreossStatsCollector(diamond.collector.Collector):
         try:
             brw = Popen(brw_cmd, shell=True, stdout=PIPE, stderr=PIPE)
             brw_out, brw_err = brw.communicate()
-            if not brw_out and not brw_err:
-                self.log.debug("no output or error for lctl command")
-            elif not brw_out:
-                self.log.debug("no output for lctl command")
-            elif brw_err.rstrip():
-                self.log.critical("lclt command error: %s" % brw_err)
-            ost_stats = {}
-            for line in brw_out.splitlines():
-                if '==>' in line:
-                    heading = line.split("/")[5].split("-")[1] \
-                        + "." + line.split("/")[6].strip("<==").strip()
-                else:
-                    heading = next(os.walk('/proc/fs/lustre/obdfilter/.')
-                                   )[1][0].split('-')[1] + '.brw_stats'
-                if 'read' in line and 'write' in line:
-                    continue
-                if '4K:' in line:
-                    read_key = heading+'_read_4k'
-                    write_key = heading+'_write_4k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '8K:' in line:
-                    read_key = heading+'_read_8k'
-                    write_key = heading+'_write_8k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '16K:' in line:
-                    read_key = heading+'_read_16k'
-                    write_key = heading+'_write_16k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '32K:' in line:
-                    read_key = heading+'_read_32k'
-                    write_key = heading+'_write_32k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '64K:' in line:
-                    read_key = heading+'_read_64k'
-                    write_key = heading+'_write_64k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '128K:' in line:
-                    read_key = heading+'_read_128k'
-                    write_key = heading+'_write_128k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '256K:' in line:
-                    read_key = heading+'_read_256k'
-                    write_key = heading+'_write_256k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '512K:' in line:
-                    read_key = heading+'_read_512k'
-                    write_key = heading+'_write_512k'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
-                if '1M:' in line:
-                    read_key = heading+'_read_1M'
-                    write_key = heading+'_write_1M'
-                    ost_stats[read_key] = int(line.split()[1])
-                    ost_stats[write_key] = int(line.split()[5])
+            self.log.critical(brw_out)
+            self.log.critical(brw_err)
+        except OSError, e:
+            self.log.critical("OSError: %s" % e)
+        if "No such file or directory" in brw_out:
+            try:
+                brw = Popen(brw_cmd2, shell=True, stdout=PIPE, stderr=PIPE)
+                brw_out, brw_err = brw.communicate()
+            except OSError, e:
+                self.log.critical("OSError: %s" % e)
+        ost_stats = {}
+        for line in brw_out.splitlines():
+            if '==>' in line:
+                heading = line.split("/")[5].split("-")[1] \
+                    + "." + line.split("/")[6].strip("<==").strip()
+            else:
+                heading = next(os.walk('/proc/fs/lustre/obdfilter/.')
+                               )[1][0].split('-')[1] + '.brw_stats'
+            if 'read' in line and 'write' in line:
+                continue
+            if '4K:' in line:
+                read_key = heading+'_read_4k'
+                write_key = heading+'_write_4k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '8K:' in line:
+                read_key = heading+'_read_8k'
+                write_key = heading+'_write_8k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '16K:' in line:
+                read_key = heading+'_read_16k'
+                write_key = heading+'_write_16k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '32K:' in line:
+                read_key = heading+'_read_32k'
+                write_key = heading+'_write_32k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '64K:' in line:
+                read_key = heading+'_read_64k'
+                write_key = heading+'_write_64k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '128K:' in line:
+                read_key = heading+'_read_128k'
+                write_key = heading+'_write_128k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '256K:' in line:
+                read_key = heading+'_read_256k'
+                write_key = heading+'_write_256k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '512K:' in line:
+                read_key = heading+'_read_512k'
+                write_key = heading+'_write_512k'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
+            if '1M:' in line:
+                read_key = heading+'_read_1M'
+                write_key = heading+'_write_1M'
+                ost_stats[read_key] = int(line.split()[1])
+                ost_stats[write_key] = int(line.split()[5])
         except OSError, e:
             logger.critical("OSError: %s" % e)
 
